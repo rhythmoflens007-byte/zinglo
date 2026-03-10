@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZINGLO | Creator Distribution Network</title>
+  
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background: #050508; color: #F0F0FF; margin: 0; }
+    .bebas { font-family: 'Bebas Neue', cursive; letter-spacing: 2px; }
+    .gradient-text { background: linear-gradient(135deg, #FF2D20, #FFB800); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .bg-gradient-custom { background: linear-gradient(135deg, #FF2D20, #FFB800); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Supabase Connection
+    const supabaseUrl = 'https://iixueazsxntoiwgkrmyy.supabase.co';
+    const supabaseKey = 'sb_publishable_tAWhZnHTsDYLEjEJvMgiPA_FHhSVkRw';
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    function App() {
+      const [role, setRole] = useState(null);
+      const [campaigns, setCampaigns] = useState([]);
+
+      // Fetch Data & Listen for Live Updates
+      useEffect(() => {
+        const fetchCampaigns = async () => {
+          const { data } = await supabase.from('campaigns').select('*').order('created_at', { ascending: false });
+          if (data) setCampaigns(data);
+        };
+
+        fetchCampaigns();
+
+        const channel = supabase.channel('public:campaigns')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'campaigns' }, payload => {
+            fetchCampaigns(); // Triggers live UI update
+          })
+          .subscribe();
+
+        return () => supabase.removeChannel(channel);
+      }, []);
+
+      // Brand Action: Launch Campaign
+      const handleCreateCampaign = async () => {
+        const newCampaign = {
+          brand: "Shark Tank Demo",
+          title: "Viral Marketing Push",
+          slots: 10,
+          slots_left: 10,
+          payout: 500,
+          min_views: 5000,
+          escrow: 5000
+        };
+        await supabase.from('campaigns').insert([newCampaign]);
+      };
+
+      // Editor Action: Claim Slot
+      const handleClaimSlot = async (id, slotsLeft) => {
+        if (slotsLeft <= 0) return;
+        
+        // Optimistic UI update for instant feedback
+        setCampaigns(prev => prev.map(c => c.id === id ? { ...c, slots_left: c.slots_left - 1 } : c));
+        
+        // Update database
+        await supabase.from('campaigns').update({ slots_left: slotsLeft - 1 }).eq('id', id);
+      };
+
+      // --- UI ---
+      if (!role) {
+        return (
+          <div className="min-h-screen flex flex-col items-center justify-center text-center p-6 relative overflow-hidden">
+            <div className="absolute inset-0 z-0" style={{ backgroundImage: "linear-gradient(rgba(255,45,32,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,45,32,0.04) 1px, transparent 1px)", backgroundSize: "60px 60px" }}></div>
+            <div className="relative z-10 max-w-4xl">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-custom flex items-center justify-center text-3xl font-black text-black mx-auto mb-8 shadow-[0_0_40px_rgba(255,45,32,0.5)]">Z</div>
+              <h1 className="bebas text-7xl md:text-9xl leading-none mb-2">CONTENT IS <span className="gradient-text">KING.</span></h1>
+              <h1 className="bebas text-7xl md:text-9xl leading-none mb-8">DISTRIBUTION IS <span className="gradient-text">GOD.</span></h1>
+              <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto mb-12">The decentralized exchange turning 50 million Indian editors into a performance-based ad network.</p>
+              <div className="flex gap-4 justify-center flex-wrap">
+                <button onClick={() => setRole('brand')} className="px-10 py-5 rounded-full bg-gradient-custom text-black font-extrabold text-lg hover:scale-105 transition shadow-[0_0_40px_rgba(255,45,32,0.4)]">🎯 I'm a Brand</button>
+                <button onClick={() => setRole('editor')} className="px-10 py-5 rounded-full border-2 border-white/30 text-white font-bold text-lg hover:border-[#FF2D20] hover:text-[#FF2D20] transition">✂️ I'm an Editor</button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen pt-8 px-4 pb-20">
+          <div className="max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-12 flex-wrap gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-[#00FFB2] shadow-[0_0_10px_#00FFB2]"></div>
+                  <span className="text-[#00FFB2] text-xs font-bold tracking-widest uppercase">{role === 'brand' ? 'Brand Dashboard' : 'Editor Dashboard'}</span>
+                </div>
+                <h2 className="bebas text-5xl md:text-6xl">{role === 'brand' ? 'COMMAND CENTER' : 'YOUR EARNING HUB'}</h2>
+              </div>
+              <button onClick={() => setRole(null)} className="px-6 py-2 border border-white/20 rounded-full text-sm hover:bg-white/10 transition">Exit to Home</button>
+            </div>
+
+            {role === 'brand' && (
+              <div className="mb-8">
+                <button onClick={handleCreateCampaign} className="px-8 py-4 bg-gradient-custom text-black font-extrabold rounded-full shadow-[0_0_30px_rgba(255,45,32,0.4)] hover:scale-105 transition">+ Launch Demo Campaign</button>
+              </div>
+            )}
+
+            <div className="grid gap-6">
+              {campaigns.map(c => {
+                const isHot = c.slots_left <= 5 && c.slots_left > 0;
+                const fillPct = Math.round(((c.slots - c.slots_left) / c.slots) * 100);
+                
+                return (
+                  <div key={c.id} className={`p-6 md:p-8 bg-white/5 border ${isHot ? 'border-[#FF2D20]/40' : 'border-white/10'} rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6 transition hover:bg-white/10`}>
+                    <div className="flex-1 w-full">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <h3 className="font-bold text-xl">{c.title}</h3>
+                        {isHot && <span className="px-3 py-1 rounded-full bg-[#FF2D20]/20 text-[#FF2D20] text-xs font-bold border border-[#FF2D20]/30">🔥 ALMOST FULL</span>}
+                      </div>
+                      <div className="flex gap-6 text-sm flex-wrap mb-4">
+                        <span className="text-gray-400">by {c.brand}</span>
+                        <span className="text-[#00FFB2] font-bold">₹{c.payout} / clip</span>
+                        <span className="text-gray-400">Min {c.min_views} views</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/10 w-full overflow-hidden">
+                        <div className="h-full bg-gradient-custom transition-all duration-500" style={{ width: `${fillPct}%` }}></div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right w-full md:w-auto flex md:flex-col justify-between items-center md:items-end">
+                      {role === 'editor' ? (
+                        <button onClick={() => handleClaimSlot(c.id, c.slots_left)} disabled={c.slots_left === 0} className={`px-8 py-4 rounded-xl font-extrabold text-sm transition ${c.slots_left > 0 ? 'bg-gradient-custom text-black hover:scale-105 shadow-[0_0_20px_rgba(255,45,32,0.3)]' : 'bg-white/5 text-gray-500 cursor-not-allowed'}`}>
+                          {c.slots_left > 0 ? '⚡ Claim Slot' : 'FULL'}
+                        </button>
+                      ) : (
+                        <div>
+                          <div className="bebas text-4xl text-[#FFB800]">₹{c.escrow}</div>
+                          <div className="text-xs text-gray-400">in escrow</div>
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-400 mt-2">{c.slots_left} / {c.slots} slots remaining</div>
+                    </div>
+                  </div>
+                )
+              })}
+              {campaigns.length === 0 && <p className="text-gray-500 text-center py-10">No campaigns live yet. (Brand needs to launch one!)</p>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
